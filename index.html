@@ -1,0 +1,1399 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Maintenance Panel Listrik — PT KAI Daop 8</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Rajdhani:wght@600;700&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+<!-- ╔══════════════════════════════════════════════════════════════════╗
+     ║  FIREBASE SDK  (compat / v8-style API)                          ║
+     ╚══════════════════════════════════════════════════════════════════╝ -->
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-storage-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+
+<style>
+/* ═══════════════════════════════════════════════════════════════════ */
+/*  DESIGN TOKENS                                                       */
+/* ═══════════════════════════════════════════════════════════════════ */
+:root {
+  --navy:    #003087;
+  --navy-dk: #00205B;
+  --navy-lt: #E8EDF7;
+  --orange:  #F4831F;
+  --org-lt:  #FEF3E8;
+  --bg:      #F0F3F9;
+  --surface: #FFFFFF;
+  --s2:      #F5F7FB;
+  --border:  #D5DCE8;
+  --fg:      #0D1A2E;
+  --fgm:     #52657A;
+  --fgs:     #8899AB;
+  --ok:      #0A7C4E; --ok-bg: #E6F6EE;
+  --warn:    #B25400; --warn-bg: #FFF3E0;
+  --crit:    #C5181A; --crit-bg: #FDEAEA;
+  --r: 8px; --rl: 14px;
+  --sh: 0 1px 3px rgba(0,0,0,.08),0 4px 12px rgba(0,0,0,.06);
+}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --navy:#2563D4;--navy-dk:#1A3D8C;--navy-lt:#0D1A38;
+  --orange:#F59235;--org-lt:#2A1800;
+  --bg:#080E1A;--surface:#111828;--s2:#1A2436;--border:#1E2D44;
+  --fg:#DDE6F2;--fgm:#7B90A8;--fgs:#4C6070;
+  --ok:#2DB975;--ok-bg:#052C18;--warn:#E89230;--warn-bg:#1F0F00;
+  --crit:#F05252;--crit-bg:#200808;--sh:0 1px 4px rgba(0,0,0,.4);
+  color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --navy:#2563D4;--navy-dk:#1A3D8C;--navy-lt:#0D1A38;
+  --orange:#F59235;--org-lt:#2A1800;
+  --bg:#080E1A;--surface:#111828;--s2:#1A2436;--border:#1E2D44;
+  --fg:#DDE6F2;--fgm:#7B90A8;--fgs:#4C6070;
+  --ok:#2DB975;--ok-bg:#052C18;--warn:#E89230;--warn-bg:#1F0F00;
+  --crit:#F05252;--crit-bg:#200808;--sh:0 1px 4px rgba(0,0,0,.4);
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:'Inter',sans-serif;background:var(--bg);color:var(--fg);font-size:15px}
+[hidden]{display:none!important}
+button{cursor:pointer;font-family:inherit}
+img{max-width:100%}
+
+/* ── LAYOUT ── */
+#app{display:flex;flex-direction:column;height:100%}
+#topbar{background:var(--navy-dk);color:#fff;display:flex;align-items:center;gap:12px;padding:0 16px;height:54px;flex-shrink:0;position:sticky;top:env(safe-area-inset-top,0);z-index:100}
+#topbar .logo{font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700;letter-spacing:.5px}
+#topbar .logo span{color:var(--orange)}
+#topbar .sub{font-size:11px;color:rgba(255,255,255,.6);margin-top:-2px;line-height:1}
+#topbar .logo-wrap{display:flex;flex-direction:column;gap:1px}
+#topbar-actions{margin-left:auto;display:flex;align-items:center;gap:8px}
+.kai-badge{background:var(--orange);color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;letter-spacing:.5px}
+
+/* tabs */
+#tabs{display:flex;background:var(--navy);border-bottom:1px solid rgba(255,255,255,.1);flex-shrink:0;overflow-x:auto;scrollbar-width:none}
+#tabs::-webkit-scrollbar{display:none}
+.tab-btn{flex-shrink:0;background:none;border:none;color:rgba(255,255,255,.6);padding:12px 16px;font-size:13px;font-weight:500;border-bottom:3px solid transparent;transition:all .2s;white-space:nowrap;display:flex;align-items:center;gap:6px}
+.tab-btn.active{color:#fff;border-bottom-color:var(--orange)}
+.tab-btn:hover{color:#fff;background:rgba(255,255,255,.05)}
+#content{flex:1;overflow-y:auto;overflow-x:hidden}
+
+/* ── SCREENS ── */
+.screen{padding:20px 16px;max-width:900px;margin:0 auto;width:100%}
+
+/* ── CARDS / COMMON ── */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:20px;box-shadow:var(--sh)}
+.card-sm{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px;box-shadow:var(--sh)}
+.section-title{font-size:13px;font-weight:600;color:var(--fgm);text-transform:uppercase;letter-spacing:.8px;margin-bottom:14px}
+.grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+@media(max-width:650px){.grid-4{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:400px){.grid-2{grid-template-columns:1fr}.grid-4{grid-template-columns:repeat(2,1fr)}}
+
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px;box-shadow:var(--sh);display:flex;flex-direction:column;gap:6px}
+.stat-label{font-size:12px;color:var(--fgm);font-weight:500}
+.stat-val{font-size:28px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1}
+.stat-sub{font-size:12px;color:var(--fgs)}
+
+/* status badges */
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:3px 8px;border-radius:20px;white-space:nowrap}
+.badge-ok{background:var(--ok-bg);color:var(--ok)}
+.badge-warn{background:var(--warn-bg);color:var(--warn)}
+.badge-crit{background:var(--crit-bg);color:var(--crit)}
+.dot{width:7px;height:7px;border-radius:50%;background:currentColor;flex-shrink:0}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;gap:6px;border:none;border-radius:var(--r);padding:9px 16px;font-size:13px;font-weight:600;transition:opacity .15s,transform .1s;white-space:nowrap}
+.btn:active{transform:scale(.97)}
+.btn-primary{background:var(--navy);color:#fff}
+.btn-primary:hover{opacity:.88}
+.btn-orange{background:var(--orange);color:#fff}
+.btn-orange:hover{opacity:.88}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--fg)}
+.btn-ghost:hover{background:var(--s2)}
+.btn-danger{background:var(--crit-bg);color:var(--crit);border:1px solid var(--crit)}
+.btn-sm{padding:6px 12px;font-size:12px}
+.btn-icon{padding:7px;border-radius:var(--r);background:var(--s2);border:1px solid var(--border);color:var(--fgm)}
+.btn-icon:hover{color:var(--navy);background:var(--navy-lt)}
+
+/* forms */
+.form-group{display:flex;flex-direction:column;gap:6px}
+.form-label{font-size:13px;font-weight:600;color:var(--fgm)}
+.form-label .req{color:var(--crit)}
+.form-input,.form-select,.form-textarea{background:var(--s2);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;font-size:14px;font-family:inherit;color:var(--fg);outline:none;transition:border-color .15s;width:100%}
+.form-input:focus,.form-select:focus,.form-textarea:focus{border-color:var(--navy);background:var(--surface)}
+.form-textarea{resize:vertical;min-height:80px}
+.form-select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%2352657A' d='M4 6l4 4 4-4'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;background-size:16px;padding-right:32px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:480px){.form-row{grid-template-columns:1fr}}
+.form-hint{font-size:12px;color:var(--fgs)}
+
+/* ── DASHBOARD ── */
+.alert-banner{background:var(--crit-bg);border:1px solid var(--crit);border-radius:var(--r);padding:12px 16px;display:flex;align-items:center;gap:10px;color:var(--crit);font-size:13px;font-weight:600;margin-bottom:16px}
+.alert-banner .alert-icon{font-size:18px;flex-shrink:0}
+.alert-count{margin-left:auto;background:var(--crit);color:#fff;border-radius:20px;padding:2px 8px;font-size:12px}
+
+/* ── PANEL LIST ── */
+.panel-item{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px;display:flex;align-items:flex-start;gap:14px;box-shadow:var(--sh);margin-bottom:10px}
+.panel-status-bar{width:4px;border-radius:4px;align-self:stretch;flex-shrink:0;min-height:60px}
+.panel-info{flex:1;min-width:0}
+.panel-name{font-size:15px;font-weight:600;color:var(--fg)}
+.panel-meta{font-size:12px;color:var(--fgm);margin-top:4px}
+.panel-actions{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+.qr-thumb{width:60px;height:60px;border:1px solid var(--border);border-radius:6px;overflow:hidden;background:#fff;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.qr-thumb canvas,.qr-thumb img{width:100%!important;height:100%!important}
+
+/* ── CHECKLIST ── */
+.checklist-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+.checklist-item:last-child{border-bottom:none}
+.checklist-label{flex:1;font-size:14px}
+.check-options{display:flex;gap:6px;flex-shrink:0}
+.check-opt{border:1px solid var(--border);background:var(--s2);color:var(--fgm);border-radius:20px;padding:4px 10px;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s}
+.check-opt:hover{opacity:.8}
+.check-opt.sel-ok{background:var(--ok-bg);color:var(--ok);border-color:var(--ok)}
+.check-opt.sel-warn{background:var(--warn-bg);color:var(--warn);border-color:var(--warn)}
+.check-opt.sel-crit{background:var(--crit-bg);color:var(--crit);border-color:var(--crit)}
+
+/* ── PHOTO UPLOAD ── */
+.photo-drop{border:2px dashed var(--border);border-radius:var(--r);padding:24px;text-align:center;color:var(--fgm);cursor:pointer;transition:border-color .15s,background .15s}
+.photo-drop:hover,.photo-drop.drag-over{border-color:var(--navy);background:var(--navy-lt)}
+.photo-drop input{display:none}
+.photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:8px;margin-top:12px}
+.photo-thumb{position:relative;aspect-ratio:1;border-radius:6px;overflow:hidden;background:var(--s2);border:1px solid var(--border)}
+.photo-thumb img{width:100%;height:100%;object-fit:cover}
+.photo-remove{position:absolute;top:3px;right:3px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;line-height:1}
+.upload-progress{background:var(--navy);height:3px;border-radius:2px;transition:width .3s;margin-top:6px}
+
+/* ── HISTORY TABLE ── */
+.tbl-wrap{overflow-x:auto;border-radius:var(--r);border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse;font-size:13px;min-width:550px}
+th{background:var(--s2);padding:10px 12px;text-align:left;font-weight:600;color:var(--fgm);font-size:12px;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--s2)}
+
+/* ── SCHEDULE ── */
+.schedule-item{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px;display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.schedule-day{background:var(--navy);color:#fff;border-radius:var(--r);width:44px;height:44px;display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0}
+.schedule-day .dd{font-size:18px;font-weight:700;line-height:1}
+.schedule-day .mm{font-size:10px;opacity:.8}
+.schedule-info{flex:1;min-width:0}
+.schedule-name{font-size:14px;font-weight:600}
+.schedule-meta{font-size:12px;color:var(--fgm);margin-top:2px}
+.urgency-tag{font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;flex-shrink:0}
+.urg-today{background:var(--crit-bg);color:var(--crit)}
+.urg-soon{background:var(--warn-bg);color:var(--warn)}
+.urg-ok{background:var(--ok-bg);color:var(--ok)}
+
+/* ── QR MODAL ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px}
+.modal{background:var(--surface);border-radius:var(--rl);padding:28px;max-width:360px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.modal h3{font-size:18px;font-weight:700;margin-bottom:6px}
+.modal-sub{font-size:13px;color:var(--fgm);margin-bottom:20px}
+#qr-render{width:200px;height:200px;margin:0 auto 20px;background:#fff;border-radius:10px;padding:8px;display:flex;align-items:center;justify-content:center}
+#qr-render canvas,#qr-render img{width:100%;height:100%}
+.modal-actions{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.modal-close-x{position:absolute;top:12px;right:12px;background:var(--s2);border:none;border-radius:var(--r);width:32px;height:32px;font-size:16px;color:var(--fgm);cursor:pointer;display:flex;align-items:center;justify-content:center}
+
+/* ── REPORT FORM ── */
+#report-screen{background:var(--bg);min-height:100vh;display:flex;flex-direction:column}
+.report-header{background:var(--navy-dk);color:#fff;padding:16px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:10}
+.report-header .back{background:rgba(255,255,255,.12);border:none;border-radius:var(--r);color:#fff;width:36px;height:36px;font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.report-header .rh-info{flex:1}
+.report-header h2{font-size:16px;font-weight:700}
+.report-header .rh-sub{font-size:12px;opacity:.7;margin-top:2px}
+.report-body{flex:1;overflow-y:auto;padding:20px 16px;max-width:700px;margin:0 auto;width:100%}
+.report-section{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:20px;margin-bottom:16px;box-shadow:var(--sh)}
+.report-section h3{font-size:14px;font-weight:700;color:var(--navy);margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.report-section h3 .ico{font-size:18px}
+.report-footer{padding:16px;background:var(--surface);border-top:1px solid var(--border);position:sticky;bottom:env(safe-area-inset-bottom,0);display:flex;gap:10px}
+.submit-btn{flex:1;padding:14px;font-size:15px;font-weight:700;background:var(--navy);color:#fff;border:none;border-radius:var(--r);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:opacity .15s}
+.submit-btn:hover{opacity:.88}
+.submit-btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* ── ADD PANEL DRAWER ── */
+.drawer-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:180;display:flex;align-items:flex-end;justify-content:center}
+@media(min-width:600px){.drawer-overlay{align-items:center}}
+.drawer{background:var(--surface);border-radius:var(--rl) var(--rl) 0 0;padding:24px 20px;max-width:520px;width:100%;max-height:90vh;overflow-y:auto}
+@media(min-width:600px){.drawer{border-radius:var(--rl)}}
+.drawer h3{font-size:17px;font-weight:700;margin-bottom:20px}
+
+/* ── SETUP SCREEN ── */
+#setup-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:var(--navy-dk)}
+.setup-card{background:var(--surface);border-radius:var(--rl);padding:36px 28px;max-width:520px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.setup-card h1{font-family:'Rajdhani',sans-serif;font-size:24px;font-weight:700;color:var(--navy);margin-bottom:4px}
+.setup-card h1 span{color:var(--orange)}
+.setup-step{display:flex;gap:12px;padding:14px 0;border-bottom:1px solid var(--border)}
+.setup-step:last-child{border-bottom:none}
+.step-num{background:var(--navy);color:#fff;border-radius:50%;width:28px;height:28px;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px}
+.step-body{flex:1}
+.step-title{font-size:14px;font-weight:700;margin-bottom:4px}
+.step-desc{font-size:13px;color:var(--fgm);line-height:1.6}
+.code-block{background:var(--s2);border:1px solid var(--border);border-radius:var(--r);padding:12px;font-family:monospace;font-size:12px;margin-top:8px;overflow-x:auto;white-space:pre;color:var(--fg)}
+.err-banner{background:var(--crit-bg);border:1px solid var(--crit);border-radius:var(--r);padding:12px 16px;color:var(--crit);font-size:13px;font-weight:600;margin-top:16px}
+
+/* success & loader */
+.success-wrap{text-align:center;padding:40px 20px}
+.success-ico{font-size:64px;margin-bottom:16px}
+.success-title{font-size:22px;font-weight:700;color:var(--ok);margin-bottom:8px}
+.success-msg{font-size:15px;color:var(--fgm);line-height:1.6;margin-bottom:28px}
+.spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--navy);border-radius:50%;animation:spin .7s linear infinite;margin:40px auto}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-msg{text-align:center;color:var(--fgm);font-size:14px;margin-top:10px}
+.empty{text-align:center;padding:48px 20px;color:var(--fgm)}
+.empty-ico{font-size:48px;margin-bottom:12px}
+.empty h3{font-size:16px;font-weight:600;margin-bottom:6px;color:var(--fg)}
+.empty p{font-size:14px}
+
+/* toast */
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(100px);background:var(--fg);color:var(--bg);padding:12px 20px;border-radius:var(--r);font-size:14px;font-weight:500;z-index:999;transition:transform .3s;box-shadow:0 4px 20px rgba(0,0,0,.3);white-space:nowrap;max-width:90vw;text-align:center}
+#toast.show{transform:translateX(-50%) translateY(0)}
+
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:10px}
+.report-detail{background:var(--s2);border-radius:var(--r);padding:14px;margin-top:6px}
+.checklist-mini{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.photo-mini{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.photo-mini-thumb{width:56px;height:56px;border-radius:6px;overflow:hidden;border:1px solid var(--border)}
+.photo-mini-thumb img{width:100%;height:100%;object-fit:cover}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     SETUP / ERROR SCREEN (shown when Firebase not configured)
+════════════════════════════════════════════════════════════════════ -->
+<div id="setup-screen" hidden>
+  <div class="setup-card">
+    <div style="text-align:center;margin-bottom:24px">
+      <div style="font-size:40px;margin-bottom:10px">⚙️</div>
+      <h1 style="font-size:20px">MAINTENANCE <span>PANEL LISTRIK</span></h1>
+      <div style="font-size:13px;color:var(--fgm)">PT KAI Daop 8 Surabaya</div>
+    </div>
+    <div id="setup-error" class="err-banner" hidden></div>
+    <div style="font-size:14px;font-weight:700;margin-bottom:12px;color:var(--fg)">🚀 Langkah Setup Firebase</div>
+    <div class="setup-step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <div class="step-title">Buat Project Firebase</div>
+        <div class="step-desc">Buka <strong>console.firebase.google.com</strong> → klik "Add project" → beri nama (mis. <em>simpal-kai-daop8</em>) → selesaikan wizard.</div>
+      </div>
+    </div>
+    <div class="setup-step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <div class="step-title">Aktifkan Firestore &amp; Storage</div>
+        <div class="step-desc">Di sidebar Firebase: <strong>Build → Firestore Database</strong> → Create database → Start in test mode.<br>Lalu <strong>Build → Storage</strong> → Get started → mode test juga.</div>
+      </div>
+    </div>
+    <div class="setup-step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <div class="step-title">Salin Firebase Config</div>
+        <div class="step-desc">Project Settings ⚙️ → Your apps → klik ikon Web (&lt;/&gt;) → Register app → salin objek <code>firebaseConfig</code>.</div>
+      </div>
+    </div>
+    <div class="setup-step">
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <div class="step-title">Tempel config ke file HTML</div>
+        <div class="step-desc">Buka file <strong>simpal-kai-firebase.html</strong> dengan editor teks, cari blok CONFIG di bagian script, isi nilai-nilainya:</div>
+        <div class="code-block">const FIREBASE_CONFIG = {
+  apiKey:            "AIzaSy...",
+  authDomain:        "nama-project.firebaseapp.com",
+  projectId:         "nama-project",
+  storageBucket:     "nama-project.appspot.com",
+  messagingSenderId: "123456789",
+  appId:             "1:123456789:web:abc..."
+};</div>
+      </div>
+    </div>
+    <div class="setup-step">
+      <div class="step-num">5</div>
+      <div class="step-body">
+        <div class="step-title">Deploy ke VPS</div>
+        <div class="step-desc">Upload file HTML ke web server (Apache/Nginx). Akses dari browser — sistem siap digunakan. QR scan akan bekerja dari URL publik server Anda.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     REPORT FORM SCREEN  (QR scan entry point)
+════════════════════════════════════════════════════════════════════ -->
+<div id="report-screen" hidden>
+  <div class="report-header">
+    <button class="back" onclick="backToAdmin()">←</button>
+    <div class="rh-info">
+      <h2 id="rf-panel-name">Memuat data panel…</h2>
+      <div class="rh-sub" id="rf-panel-loc">PT KAI Daop 8 Surabaya</div>
+    </div>
+    <div class="kai-badge">KAI</div>
+  </div>
+  <div class="report-body">
+    <div id="rf-loading" style="padding:40px 0;text-align:center">
+      <div class="spinner"></div>
+      <div class="loading-msg">Memuat form laporan…</div>
+    </div>
+    <div id="rf-form" hidden>
+
+      <!-- Identitas -->
+      <div class="report-section">
+        <h3><span class="ico">👤</span> Identitas Petugas</h3>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div class="form-group">
+            <label class="form-label">Nama Lengkap <span class="req">*</span></label>
+            <input class="form-input" id="rf-name" placeholder="Nama petugas pemeliharaan" autocomplete="name">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">NIP</label>
+              <input class="form-input" id="rf-nip" placeholder="Nomor Induk Pegawai">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Jabatan</label>
+              <select class="form-select" id="rf-jabatan">
+                <option value="">Pilih jabatan</option>
+                <option>Teknisi Listrik</option>
+                <option>Supervisor Teknik</option>
+                <option>Kepala Depo</option>
+                <option>Kontraktor</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Tanggal Inspeksi <span class="req">*</span></label>
+              <input class="form-input" type="date" id="rf-date">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Waktu</label>
+              <input class="form-input" type="time" id="rf-time">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Jenis Kegiatan <span class="req">*</span></label>
+            <select class="form-select" id="rf-jenis">
+              <option value="">Pilih jenis kegiatan</option>
+              <option>Inspeksi Rutin Harian</option>
+              <option>Pemeliharaan Preventif Mingguan</option>
+              <option>Pemeliharaan Preventif Bulanan</option>
+              <option>Pemeliharaan Korektif</option>
+              <option>Penggantian Komponen</option>
+              <option>Audit K3</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Checklist K3 -->
+      <div class="report-section">
+        <h3><span class="ico">✅</span> Checklist Inspeksi K3</h3>
+        <div id="rf-checklist"></div>
+      </div>
+
+      <!-- Pengukuran -->
+      <div class="report-section">
+        <h3><span class="ico">⚡</span> Data Pengukuran Kelistrikan</h3>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Tegangan (V)</label>
+              <input class="form-input" type="number" id="rf-volt" placeholder="mis. 220">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Arus (A)</label>
+              <input class="form-input" type="number" id="rf-amp" placeholder="mis. 15">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Suhu Panel (°C)</label>
+              <input class="form-input" type="number" id="rf-temp" placeholder="mis. 35">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Kelembaban (%)</label>
+              <input class="form-input" type="number" id="rf-humid" placeholder="mis. 65">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Temuan & Tindakan -->
+      <div class="report-section">
+        <h3><span class="ico">📝</span> Temuan &amp; Tindakan</h3>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div class="form-group">
+            <label class="form-label">Temuan / Kondisi Abnormal</label>
+            <textarea class="form-textarea" id="rf-findings" placeholder="Tuliskan temuan atau kondisi yang perlu diperhatikan…"></textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Tindakan yang Dilakukan</label>
+            <textarea class="form-textarea" id="rf-actions" placeholder="Tindakan perbaikan atau penanganan yang telah dilakukan…"></textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Jadwal Pemeliharaan Berikutnya</label>
+            <input class="form-input" type="date" id="rf-next">
+          </div>
+        </div>
+      </div>
+
+      <!-- Foto -->
+      <div class="report-section">
+        <h3><span class="ico">📷</span> Foto Kondisi Panel</h3>
+        <div class="photo-drop" id="photo-drop" onclick="document.getElementById('photo-input').click()">
+          <input type="file" id="photo-input" accept="image/*" multiple onchange="handlePhotoSelect(event)">
+          <div style="font-size:32px;margin-bottom:8px">📷</div>
+          <div style="font-size:14px;font-weight:600;margin-bottom:4px">Klik untuk ambil / pilih foto</div>
+          <div style="font-size:12px;color:var(--fgs)">Mendukung JPG, PNG · Maks 5 foto · 5MB per file</div>
+        </div>
+        <div id="photo-grid-wrap" hidden>
+          <div class="photo-grid" id="photo-grid"></div>
+        </div>
+        <div id="upload-bar-wrap" hidden style="margin-top:8px">
+          <div style="font-size:12px;color:var(--fgm);margin-bottom:4px" id="upload-bar-label">Mengunggah foto…</div>
+          <div style="background:var(--border);height:4px;border-radius:2px;overflow:hidden">
+            <div class="upload-progress" id="upload-bar" style="width:0%"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Status Keseluruhan -->
+      <div class="report-section">
+        <h3><span class="ico">🔖</span> Status Keseluruhan Panel</h3>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <label style="flex:1;min-width:100px;cursor:pointer">
+            <input type="radio" name="status" value="normal" style="display:none" onchange="selStatus(this)">
+            <div class="status-opt" data-val="normal" style="border:2px solid var(--border);border-radius:var(--r);padding:14px 10px;text-align:center;transition:all .15s">
+              <div style="font-size:24px">✅</div>
+              <div style="font-size:13px;font-weight:700;margin-top:4px;color:var(--ok)">NORMAL</div>
+              <div style="font-size:11px;color:var(--fgs);margin-top:2px">Semua baik</div>
+            </div>
+          </label>
+          <label style="flex:1;min-width:100px;cursor:pointer">
+            <input type="radio" name="status" value="perhatian" style="display:none" onchange="selStatus(this)">
+            <div class="status-opt" data-val="perhatian" style="border:2px solid var(--border);border-radius:var(--r);padding:14px 10px;text-align:center;transition:all .15s">
+              <div style="font-size:24px">⚠️</div>
+              <div style="font-size:13px;font-weight:700;margin-top:4px;color:var(--warn)">PERHATIAN</div>
+              <div style="font-size:11px;color:var(--fgs);margin-top:2px">Perlu dipantau</div>
+            </div>
+          </label>
+          <label style="flex:1;min-width:100px;cursor:pointer">
+            <input type="radio" name="status" value="darurat" style="display:none" onchange="selStatus(this)">
+            <div class="status-opt" data-val="darurat" style="border:2px solid var(--border);border-radius:var(--r);padding:14px 10px;text-align:center;transition:all .15s">
+              <div style="font-size:24px">🚨</div>
+              <div style="font-size:13px;font-weight:700;margin-top:4px;color:var(--crit)">DARURAT</div>
+              <div style="font-size:11px;color:var(--fgs);margin-top:2px">Butuh segera</div>
+            </div>
+          </label>
+        </div>
+      </div>
+    </div><!-- /rf-form -->
+
+    <!-- Success -->
+    <div id="rf-success" hidden>
+      <div class="success-wrap">
+        <div class="success-ico">✅</div>
+        <div class="success-title">Laporan Terkirim!</div>
+        <div class="success-msg">Laporan pemeliharaan untuk panel ini berhasil disimpan ke sistem Maintenance Panel Listrik.<br><br>Data dapat dilihat di Dashboard oleh supervisor.</div>
+        <button class="btn btn-primary" onclick="resetForm()">Buat Laporan Baru</button>
+      </div>
+    </div>
+  </div><!-- /report-body -->
+  <div class="report-footer" id="rf-footer">
+    <button class="submit-btn" id="rf-submit" onclick="submitReport()">
+      <span>📤</span> Kirim Laporan
+    </button>
+  </div>
+</div><!-- /report-screen -->
+
+<!-- ══════════════════════════════════════════════════════════════════
+     MAIN APP
+════════════════════════════════════════════════════════════════════ -->
+<div id="main-app" hidden>
+  <div id="app">
+    <div id="topbar">
+      <div class="logo-wrap">
+        <div class="logo" style="font-size:15px;letter-spacing:.3px">MAINTENANCE <span>PANEL LISTRIK</span></div>
+        <div class="sub">PT KAI Daop 8 Surabaya</div>
+      </div>
+      <div id="topbar-actions">
+        <div style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:20px;padding:4px 12px;font-size:13px;display:flex;align-items:center;gap:6px">
+          <span>📡</span><span id="conn-status">Terhubung</span>
+        </div>
+      </div>
+    </div>
+    <div id="tabs">
+      <button class="tab-btn active" onclick="switchTab('dashboard',this)">🏠 Dashboard</button>
+      <button class="tab-btn" onclick="switchTab('panels',this)">📋 Panel</button>
+      <button class="tab-btn" onclick="switchTab('reports',this)">📊 Laporan</button>
+      <button class="tab-btn" onclick="switchTab('schedule',this)">🔔 Jadwal</button>
+    </div>
+    <div id="content">
+
+      <!-- Dashboard -->
+      <div id="tab-dashboard" class="screen">
+        <div id="dash-alert" hidden></div>
+        <div class="grid-4" style="margin-bottom:20px" id="stat-cards"></div>
+        <div style="display:grid;grid-template-columns:1fr;gap:16px">
+          <div class="card">
+            <div class="section-title">Laporan Terbaru</div>
+            <div id="dash-recent"></div>
+          </div>
+          <div class="card">
+            <div class="section-title">Panel Perlu Perhatian</div>
+            <div id="dash-attention"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Panels -->
+      <div id="tab-panels" class="screen" hidden>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+          <div class="section-title" style="margin:0;flex:1">Daftar Panel</div>
+          <button class="btn btn-primary btn-sm" onclick="openAddPanel()">+ Tambah Panel</button>
+        </div>
+        <input class="form-input" id="panel-search" placeholder="🔍 Cari nama atau lokasi panel…" oninput="renderPanels()" style="margin-bottom:14px">
+        <div id="panel-list"></div>
+      </div>
+
+      <!-- Reports -->
+      <div id="tab-reports" class="screen" hidden>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+          <div class="section-title" style="margin:0;flex:1">Riwayat Laporan</div>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+          <select class="form-select" id="filter-status" onchange="renderReports()" style="flex:1;min-width:130px;max-width:200px">
+            <option value="">Semua Status</option>
+            <option value="normal">Normal</option>
+            <option value="perhatian">Perhatian</option>
+            <option value="darurat">Darurat</option>
+          </select>
+          <select class="form-select" id="filter-panel" onchange="renderReports()" style="flex:1;min-width:140px;max-width:220px">
+            <option value="">Semua Panel</option>
+          </select>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr>
+              <th>Tanggal</th><th>Panel</th><th>Petugas</th><th>Kegiatan</th><th>Status</th><th></th>
+            </tr></thead>
+            <tbody id="report-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Schedule -->
+      <div id="tab-schedule" class="screen" hidden>
+        <div class="section-title">Jadwal Pemeliharaan</div>
+        <div id="schedule-list"></div>
+        <div class="card" style="margin-top:20px">
+          <div class="section-title">Info Notifikasi</div>
+          <div style="font-size:14px;color:var(--fgm);line-height:1.7">
+            Sistem Maintenance Panel Listrik menggunakan jadwal dari field <em>Jadwal Berikutnya</em> yang diisi petugas saat submit laporan.
+            Panel yang melebihi jadwal ditandai merah di Dashboard.<br><br>
+            Untuk integrasi notifikasi WhatsApp otomatis, hubungi admin sistem untuk setup API Fonnte/Wablas.
+          </div>
+        </div>
+      </div>
+    </div><!-- /content -->
+  </div><!-- /app -->
+</div><!-- /main-app -->
+
+<!-- QR Modal -->
+<div class="modal-overlay" id="qr-modal" hidden onclick="if(event.target===this)closeQr()">
+  <div class="modal" style="position:relative">
+    <button class="modal-close-x" onclick="closeQr()">✕</button>
+    <h3 id="qr-modal-name">QR Code Panel</h3>
+    <div class="modal-sub" id="qr-modal-sub">Scan untuk buka form laporan</div>
+    <div id="qr-render"></div>
+    <div style="font-size:11px;color:var(--fgs);margin-bottom:16px;word-break:break-all" id="qr-url-label"></div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="downloadQr()">⬇️ Unduh PNG</button>
+      <button class="btn btn-ghost" onclick="closeQr()">Tutup</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Panel Drawer -->
+<div class="drawer-overlay" id="add-panel-modal" hidden onclick="if(event.target===this)closeAddPanel()">
+  <div class="drawer">
+    <h3>➕ Tambah Panel Baru</h3>
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div class="form-group">
+        <label class="form-label">ID Panel <span class="req">*</span></label>
+        <input class="form-input" id="ap-id" placeholder="mis. P-SBY-001">
+        <div class="form-hint">Kode unik panel (tidak bisa diubah)</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nama Panel <span class="req">*</span></label>
+        <input class="form-input" id="ap-name" placeholder="mis. Panel Distribusi Utama Peron 1">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Lokasi / Stasiun <span class="req">*</span></label>
+        <select class="form-select" id="ap-station">
+          <option value="">Pilih stasiun</option>
+          <option>Surabaya Pasar Turi</option><option>Surabaya Gubeng</option>
+          <option>Surabaya Kota</option><option>Wonokromo</option>
+          <option>Mojokerto</option><option>Jombang</option>
+          <option>Kertosono</option><option>Kediri</option>
+          <option>Blitar</option><option>Malang</option>
+          <option>Kepanjen</option><option>Lawang</option>
+          <option>Bangil</option><option>Pasuruan</option>
+          <option>Probolinggo</option><option>Jember</option>
+          <option>Banyuwangi</option><option>Depo Sidotopo</option>
+          <option>Balai Yasa Gubeng</option><option>Lainnya</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Detail Lokasi</label>
+        <input class="form-input" id="ap-loc" placeholder="mis. Ruang Panel Lantai 1, dekat loket">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Interval Pemeliharaan</label>
+        <select class="form-select" id="ap-interval">
+          <option value="7">Mingguan (7 hari)</option>
+          <option value="14">Dua Mingguan (14 hari)</option>
+          <option value="30" selected>Bulanan (30 hari)</option>
+          <option value="90">Triwulanan (90 hari)</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
+        <button class="btn btn-ghost" onclick="closeAddPanel()">Batal</button>
+        <button class="btn btn-primary" onclick="saveNewPanel()">Simpan Panel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     SCRIPT
+════════════════════════════════════════════════════════════════════ -->
+<script>
+/* ╔══════════════════════════════════════════════════════════════════╗
+   ║  ⚙️  FIREBASE CONFIG — ISI NILAI-NILAI INI DENGAN KONFIGURASI   ║
+   ║     FIREBASE PROJECT ANDA SEBELUM DEPLOY KE VPS                 ║
+   ╚══════════════════════════════════════════════════════════════════╝ */
+const FIREBASE_CONFIG = {
+  apiKey:            "AIzaSyDnOSerkt-ZNl1eubI1_OPQAN3J8QdXd9I",
+  authDomain:        "maintenancepanellistrik-177be.firebaseapp.com",
+  projectId:         "maintenancepanellistrik-177be",
+  storageBucket:     "maintenancepanellistrik-177be.firebasestorage.app",
+  messagingSenderId: "185759292857",
+  appId:             "1:185759292857:web:d8329890df7d06fee96a68",
+  measurementId:     "G-7KVTBW61FQ"
+};
+/* ══════════════════════════════════════════════════════════════════ */
+
+/* ── STATE ── */
+let db, storage;
+let panels  = [];
+let reports = [];
+let currentPanelId    = null;
+let photoFiles        = [];
+let currentQrPanelId  = null;
+
+/* ── CHECKLIST K3 ── */
+const CHECKLIST = [
+  { id:'fisik',      label:'Kondisi fisik panel (karat, penyok, kerusakan mekanis)' },
+  { id:'suhu',       label:'Suhu panel tidak berlebihan / panas abnormal' },
+  { id:'kabel',      label:'Kabel dan sambungan konektor dalam kondisi baik' },
+  { id:'mcb',        label:'MCB / Circuit Breaker berfungsi normal' },
+  { id:'indikator',  label:'Lampu indikator menyala dengan benar' },
+  { id:'label',      label:'Label dan penandaan komponen terbaca jelas' },
+  { id:'grounding',  label:'Grounding / Earthing terpasang dan berfungsi' },
+  { id:'kebersihan', label:'Kebersihan dalam panel (bebas debu, serangga, kotoran)' },
+  { id:'ventilasi',  label:'Ventilasi panel memadai, tidak tersumbat' },
+  { id:'pintu',      label:'Pintu dan kunci panel berfungsi baik, tertutup rapat' },
+  { id:'segel',      label:'Segel keamanan / stiker integritas tidak rusak' },
+  { id:'proteksi',   label:'Proteksi arus lebih (fuse/relay) terpasang & berfungsi' },
+];
+
+/* Panel awal PT KAI Daop 8 (di-seed saat pertama kali) */
+const SEED_PANELS = [
+  { id:'P-SBY-PT-001',   name:'Panel Distribusi Utama Peron 1', station:'Surabaya Pasar Turi', location:'Ruang Panel Lantai GF', maintenanceInterval:30 },
+  { id:'P-SBY-GBG-001',  name:'Panel MDP Concourse Gubeng',     station:'Surabaya Gubeng',    location:'Ruang Teknik Bawah',    maintenanceInterval:30 },
+  { id:'P-SBY-GBG-002',  name:'Panel Penerangan Peron 2-3',     station:'Surabaya Gubeng',    location:'Peron 2 Area Tengah',   maintenanceInterval:30 },
+  { id:'P-MLG-001',      name:'Panel Utama Stasiun Malang',      station:'Malang',             location:'Ruang Operasional',     maintenanceInterval:30 },
+  { id:'P-MLG-002',      name:'Panel AC & Exhaust Malang',       station:'Malang',             location:'Basement Teknik',       maintenanceInterval:14 },
+  { id:'P-BLT-001',      name:'Panel Distribusi Blitar',         station:'Blitar',             location:'Ruang Sinyal',          maintenanceInterval:30 },
+  { id:'P-BWI-001',      name:'Panel Utama Banyuwangi Baru',     station:'Banyuwangi',         location:'Ruang Teknik Utama',    maintenanceInterval:30 },
+  { id:'P-PSR-001',      name:'Panel Penerangan Pasuruan',       station:'Pasuruan',           location:'Area Loket',            maintenanceInterval:30 },
+  { id:'P-DEPO-STO-001', name:'Panel MDP Depo Sidotopo A',       station:'Depo Sidotopo',      location:'Gudang Teknik A',       maintenanceInterval:14 },
+  { id:'P-DEPO-STO-002', name:'Panel Sub-Distribusi Depo B',     station:'Depo Sidotopo',      location:'Gudang Teknik B',       maintenanceInterval:14 },
+];
+
+const STATUS_ICON = { normal:'✅', perhatian:'⚠️', darurat:'🚨' };
+
+/* ══════════════════════════════════════════════════════════════════
+   INIT
+════════════════════════════════════════════════════════════════════ */
+async function init() {
+  /* Validate config */
+  if (FIREBASE_CONFIG.apiKey.startsWith('GANTI')) {
+    showSetupScreen('Konfigurasi Firebase belum diisi. Buka file HTML dengan editor teks dan isi FIREBASE_CONFIG di bagian atas script.');
+    return;
+  }
+
+  try {
+    firebase.initializeApp(FIREBASE_CONFIG);
+    db      = firebase.firestore();
+    storage = firebase.storage();
+
+    /* Enable offline persistence (opsional — berguna untuk jaringan lemah) */
+    db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
+
+    /* Sign in anonymously so Storage rules can allow writes */
+    try { await firebase.auth().signInAnonymously(); } catch (e) { console.warn('Anonymous auth tidak aktif:', e.message); }
+  } catch (err) {
+    showSetupScreen('Gagal terhubung ke Firebase: ' + err.message + '\n\nPeriksa kembali nilai FIREBASE_CONFIG dan pastikan project Firebase aktif.');
+    return;
+  }
+
+  /* Seed panels if empty */
+  try {
+    const snap0 = await db.collection('panels').limit(1).get();
+    if (snap0.empty) await seedPanels();
+  } catch (e) { console.warn('Seed gagal:', e.message); }
+
+  /* Real-time listeners */
+  db.collection('panels').orderBy('createdAt', 'asc').onSnapshot(snap => {
+    panels = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderAll();
+  }, err => console.warn('panels listener:', err));
+
+  db.collection('reports').orderBy('createdAt', 'desc').limit(200).onSnapshot(snap => {
+    reports = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderAll();
+  }, err => console.warn('reports listener:', err));
+
+  /* Hash routing — QR scan masuk langsung ke form laporan,
+     URL biasa (tanpa hash) langsung ke dashboard utama */
+  const hash = location.hash;
+  if (hash.startsWith('#panel=')) {
+    const pid = decodeURIComponent(hash.slice(7));
+    currentPanelId = pid;
+    show('report-screen');
+    await openReportForm(pid);
+  } else {
+    /* Bersihkan hash apa pun yang tidak dikenal, lalu tampil dashboard */
+    if (hash && !hash.startsWith('#panel=')) {
+      history.replaceState(null, '', location.pathname);
+    }
+    show('main-app');
+  }
+
+  /* Update connection indicator */
+  db.collection('_ping').doc('_').onSnapshot(
+    () => setConnStatus(true),
+    () => setConnStatus(false)
+  );
+}
+
+async function seedPanels() {
+  const batch = db.batch();
+  SEED_PANELS.forEach(p => {
+    batch.set(db.doc('panels/' + p.id), { ...p, createdAt: Date.now() });
+  });
+  await batch.commit();
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   SHOW / HIDE
+════════════════════════════════════════════════════════════════════ */
+function show(id) {
+  ['setup-screen', 'report-screen', 'main-app'].forEach(s => {
+    const el = document.getElementById(s);
+    if (el) el.hidden = (s !== id);
+  });
+}
+
+function showSetupScreen(msg) {
+  show('setup-screen');
+  const errEl = document.getElementById('setup-error');
+  if (msg) { errEl.textContent = msg; errEl.hidden = false; }
+}
+
+function setConnStatus(ok) {
+  const el = document.getElementById('conn-status');
+  if (el) el.textContent = ok ? 'Terhubung' : 'Offline';
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   TABS
+════════════════════════════════════════════════════════════════════ */
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  ['dashboard', 'panels', 'reports', 'schedule'].forEach(t => {
+    document.getElementById('tab-' + t).hidden = (t !== name);
+  });
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   RENDER ALL
+════════════════════════════════════════════════════════════════════ */
+function renderAll() {
+  renderDashboard();
+  renderPanels();
+  renderReports();
+  renderSchedule();
+  updateFilterOptions();
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   DASHBOARD
+════════════════════════════════════════════════════════════════════ */
+function renderDashboard() {
+  const tot   = panels.length;
+  const nor   = panels.filter(p => p.lastStatus === 'normal').length;
+  const per   = panels.filter(p => p.lastStatus === 'perhatian').length;
+  const dar   = panels.filter(p => p.lastStatus === 'darurat').length;
+  const today = new Date();
+  const soon  = panels.filter(p => {
+    if (!p.nextSchedule) return false;
+    const diff = (new Date(p.nextSchedule) - today) / 86400000;
+    return diff >= 0 && diff <= 7;
+  }).length;
+
+  document.getElementById('stat-cards').innerHTML = `
+    <div class="stat-card"><div class="stat-label">Total Panel</div><div class="stat-val" style="color:var(--navy)">${tot}</div><div class="stat-sub">Terdaftar</div></div>
+    <div class="stat-card"><div class="stat-label">Normal</div><div class="stat-val" style="color:var(--ok)">${nor}</div><div class="stat-sub">Kondisi baik</div></div>
+    <div class="stat-card"><div class="stat-label">Perhatian</div><div class="stat-val" style="color:var(--warn)">${per}</div><div class="stat-sub">Perlu dipantau</div></div>
+    <div class="stat-card"><div class="stat-label">Jadwal 7 Hari</div><div class="stat-val" style="color:var(--orange)">${soon}</div><div class="stat-sub">Akan datang</div></div>
+  `;
+
+  const alertEl = document.getElementById('dash-alert');
+  if (dar > 0) {
+    alertEl.hidden = false;
+    const names = panels.filter(p => p.lastStatus === 'darurat').map(p => p.name).join(', ');
+    alertEl.innerHTML = `<div class="alert-banner"><span class="alert-icon">🚨</span><span><strong>${dar} Panel DARURAT</strong> — ${names}</span><span class="alert-count">${dar}</span></div>`;
+  } else { alertEl.hidden = true; }
+
+  const rec = reports.slice(0, 5);
+  document.getElementById('dash-recent').innerHTML = rec.length ? rec.map(r => `
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:20px">${STATUS_ICON[r.status] || '📋'}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.panelName || r.panelId}</div>
+        <div style="font-size:12px;color:var(--fgm)">${r.technicianName} · ${fmtDate(r.inspectionDate)}</div>
+      </div>
+      <span class="badge badge-${r.status === 'normal' ? 'ok' : r.status === 'perhatian' ? 'warn' : 'crit'}">${r.status || '—'}</span>
+    </div>`).join('') : '<div style="color:var(--fgs);font-size:14px;padding:12px 0">Belum ada laporan.</div>';
+
+  const att = panels.filter(p => p.lastStatus && p.lastStatus !== 'normal');
+  document.getElementById('dash-attention').innerHTML = att.length ? att.map(p => `
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:20px">${STATUS_ICON[p.lastStatus] || '📋'}</span>
+      <div style="flex:1">
+        <div style="font-size:14px;font-weight:600">${p.name}</div>
+        <div style="font-size:12px;color:var(--fgm)">${p.station || ''}</div>
+      </div>
+      <span class="badge badge-${p.lastStatus === 'perhatian' ? 'warn' : 'crit'}">${p.lastStatus}</span>
+    </div>`).join('') : '<div style="color:var(--fgs);font-size:14px;padding:12px 0">Semua panel dalam kondisi normal ✅</div>';
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   PANELS
+════════════════════════════════════════════════════════════════════ */
+function renderPanels() {
+  const q = (document.getElementById('panel-search')?.value || '').toLowerCase();
+  const list = panels.filter(p =>
+    !q || p.name?.toLowerCase().includes(q) || p.station?.toLowerCase().includes(q) || p.id?.toLowerCase().includes(q)
+  );
+  const el = document.getElementById('panel-list');
+  if (!list.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-ico">📋</div><h3>${q ? 'Panel tidak ditemukan' : 'Belum ada panel'}</h3><p>${q ? 'Coba kata kunci lain' : 'Klik "Tambah Panel" untuk mendaftar'}</p></div>`;
+    return;
+  }
+  el.innerHTML = list.map(p => {
+    const st  = p.lastStatus || 'belum';
+    const bar = st === 'normal' ? 'var(--ok)' : st === 'perhatian' ? 'var(--warn)' : st === 'darurat' ? 'var(--crit)' : 'var(--border)';
+    return `<div class="panel-item">
+      <div class="panel-status-bar" style="background:${bar}"></div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <div class="panel-info">
+            <div class="panel-name">${p.name}</div>
+            <div class="panel-meta">📍 ${p.station || '—'} ${p.location ? '· ' + p.location : ''}</div>
+            <div class="panel-meta">🔖 ID: <code style="font-size:12px;background:var(--s2);padding:1px 5px;border-radius:4px">${p.id}</code></div>
+            ${p.lastMaintenance ? `<div class="panel-meta">🛠 Terakhir: ${fmtDate(p.lastMaintenance)}</div>` : ''}
+            ${p.nextSchedule ? `<div class="panel-meta">${isOverdue(p.nextSchedule) ? '🔴' : '🗓'} Jadwal: ${fmtDate(p.nextSchedule)} ${isOverdue(p.nextSchedule) ? '<span style="color:var(--crit);font-weight:700">LEWAT JADWAL</span>' : ''}</div>` : ''}
+          </div>
+          <div class="qr-thumb" id="qr-mini-${p.id}" style="cursor:pointer;flex-shrink:0" onclick="openQr('${p.id}')">
+            <div style="font-size:11px;font-weight:700;color:var(--fgm)">QR</div>
+          </div>
+        </div>
+        <div class="panel-actions">
+          ${st !== 'belum' ? `<span class="badge badge-${st === 'normal' ? 'ok' : st === 'perhatian' ? 'warn' : 'crit'}"><span class="dot"></span>${st}</span>` : '<span class="badge" style="background:var(--s2);color:var(--fgm)">Belum ada laporan</span>'}
+          <button class="btn btn-primary btn-sm" onclick="openReportDirect('${p.id}')">📝 Isi Laporan</button>
+          <button class="btn btn-ghost btn-sm" onclick="openQr('${p.id}')">📱 QR Code</button>
+          <button class="btn btn-danger btn-sm" onclick="deletePanel('${p.id}','${p.name.replace(/'/g, "\\'")}')">🗑</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  list.forEach(p => generateMiniQr(p.id));
+}
+
+function generateMiniQr(panelId) {
+  const el = document.getElementById('qr-mini-' + panelId);
+  if (!el || el.querySelector('canvas')) return;
+  el.innerHTML = '';
+  try {
+    new QRCode(el, { text: qrUrl(panelId), width: 60, height: 60, colorDark: '#000', colorLight: '#fff', correctLevel: QRCode.CorrectLevel.M });
+  } catch (e) { el.innerHTML = '<div style="font-size:11px;font-weight:700;color:var(--fgm)">QR</div>'; }
+}
+
+function qrUrl(panelId) {
+  return location.href.split('#')[0] + '#panel=' + encodeURIComponent(panelId);
+}
+
+async function deletePanel(id, name) {
+  if (!confirm(`Hapus panel "${name}"?\nSemua laporan terkait tetap tersimpan.`)) return;
+  try {
+    await db.doc('panels/' + id).delete();
+    toast('Panel dihapus');
+  } catch (e) { toast('Gagal hapus: ' + e.message); }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   QR MODAL
+════════════════════════════════════════════════════════════════════ */
+function openQr(panelId) {
+  currentQrPanelId = panelId;
+  const p = panels.find(x => x.id === panelId);
+  document.getElementById('qr-modal-name').textContent = p?.name || panelId;
+  document.getElementById('qr-modal-sub').textContent  = p?.station ? '📍 ' + p.station : 'Scan untuk form laporan';
+  const url = qrUrl(panelId);
+  document.getElementById('qr-url-label').textContent = url;
+  const wrap = document.getElementById('qr-render');
+  wrap.innerHTML = '';
+  try {
+    new QRCode(wrap, { text: url, width: 200, height: 200, colorDark: '#000', colorLight: '#fff', correctLevel: QRCode.CorrectLevel.H });
+  } catch (e) {}
+  document.getElementById('qr-modal').hidden = false;
+}
+function closeQr() { document.getElementById('qr-modal').hidden = true; }
+
+function downloadQr() {
+  const canvas = document.querySelector('#qr-render canvas');
+  if (!canvas) { toast('QR belum siap'); return; }
+  try {
+    const a = document.createElement('a');
+    a.href     = canvas.toDataURL('image/png');
+    a.download = 'QR_' + (currentQrPanelId || 'panel') + '.png';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    toast('QR Code diunduh ✅');
+  } catch (e) { toast('Gagal unduh: ' + e.message); }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   ADD PANEL
+════════════════════════════════════════════════════════════════════ */
+function openAddPanel()  { document.getElementById('add-panel-modal').hidden = false; }
+function closeAddPanel() { document.getElementById('add-panel-modal').hidden = true; }
+
+async function saveNewPanel() {
+  const id   = document.getElementById('ap-id').value.trim();
+  const name = document.getElementById('ap-name').value.trim();
+  const sta  = document.getElementById('ap-station').value;
+  const loc  = document.getElementById('ap-loc').value.trim();
+  const intv = parseInt(document.getElementById('ap-interval').value) || 30;
+  if (!id || !name || !sta) { toast('ID, Nama, dan Stasiun wajib diisi'); return; }
+  try {
+    await db.doc('panels/' + id).set({ id, name, station: sta, location: loc, maintenanceInterval: intv, createdAt: Date.now() });
+    toast('Panel berhasil ditambahkan ✅');
+    closeAddPanel();
+    ['ap-id', 'ap-name', 'ap-loc'].forEach(x => document.getElementById(x).value = '');
+    document.getElementById('ap-station').value  = '';
+    document.getElementById('ap-interval').value = '30';
+  } catch (e) { toast('Gagal simpan: ' + e.message); }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   REPORTS TABLE
+════════════════════════════════════════════════════════════════════ */
+function renderReports() {
+  const stF  = document.getElementById('filter-status')?.value || '';
+  const pF   = document.getElementById('filter-panel')?.value  || '';
+  const filt = reports.filter(r => (!stF || r.status === stF) && (!pF || r.panelId === pF));
+  const tbody = document.getElementById('report-tbody');
+  if (!filt.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--fgs);padding:32px">Belum ada laporan</td></tr>';
+    return;
+  }
+  tbody.innerHTML = filt.map(r => `
+    <tr>
+      <td style="white-space:nowrap">${fmtDate(r.inspectionDate)}</td>
+      <td><div style="font-weight:600">${r.panelName || r.panelId}</div><div style="font-size:11px;color:var(--fgs)">${r.panelId}</div></td>
+      <td><div>${r.technicianName || '—'}</div><div style="font-size:11px;color:var(--fgs)">${r.nip ? 'NIP: ' + r.nip : ''}</div></td>
+      <td style="font-size:12px;color:var(--fgm)">${r.jenisKegiatan || '—'}</td>
+      <td><span class="badge badge-${r.status === 'normal' ? 'ok' : r.status === 'perhatian' ? 'warn' : 'crit'}">${STATUS_ICON[r.status] || ''} ${r.status || '—'}</span></td>
+      <td><button class="btn btn-ghost btn-sm" onclick="toggleDetail('${r.id}')">Detail</button></td>
+    </tr>
+    <tr id="detail-${r.id}" hidden><td colspan="6"><div class="report-detail">${buildDetail(r)}</div></td></tr>
+  `).join('');
+}
+
+function toggleDetail(id) {
+  const el = document.getElementById('detail-' + id);
+  if (el) el.hidden = !el.hidden;
+}
+
+function buildDetail(r) {
+  let h = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 20px;font-size:13px;margin-bottom:10px">
+    <div><span style="color:var(--fgm)">Jabatan: </span>${r.jabatan || '—'}</div>
+    <div><span style="color:var(--fgm)">Waktu: </span>${r.inspectionTime || '—'}</div>
+    ${r.voltage     ? `<div><span style="color:var(--fgm)">Tegangan: </span>${r.voltage} V</div>`    : ''}
+    ${r.current     ? `<div><span style="color:var(--fgm)">Arus: </span>${r.current} A</div>`        : ''}
+    ${r.temperature ? `<div><span style="color:var(--fgm)">Suhu: </span>${r.temperature}°C</div>`    : ''}
+    ${r.humidity    ? `<div><span style="color:var(--fgm)">Kelembaban: </span>${r.humidity}%</div>`  : ''}
+  </div>`;
+  if (r.findings) h += `<div style="margin-bottom:8px"><strong style="font-size:12px;color:var(--fgm)">TEMUAN:</strong><br>${r.findings}</div>`;
+  if (r.actions)  h += `<div style="margin-bottom:8px"><strong style="font-size:12px;color:var(--fgm)">TINDAKAN:</strong><br>${r.actions}</div>`;
+  if (r.checklist) {
+    const colors = { ok:'var(--ok-bg)', warn:'var(--warn-bg)', crit:'var(--crit-bg)' };
+    const texts  = { ok:'Baik', warn:'Perhatian', crit:'Masalah' };
+    h += `<div style="margin-bottom:8px"><strong style="font-size:12px;color:var(--fgm)">CHECKLIST:</strong><div class="checklist-mini">${
+      Object.entries(r.checklist).map(([k, v]) =>
+        `<span style="font-size:11px;padding:2px 7px;border-radius:20px;background:${colors[v]||'var(--s2)'};color:${v==='ok'?'var(--ok)':v==='warn'?'var(--warn)':v==='crit'?'var(--crit)':'var(--fgm)'}">
+          ${CHECKLIST.find(c=>c.id===k)?.label.split(' ').slice(0,3).join(' ')||k}: ${texts[v]||v}</span>`
+      ).join('')
+    }</div></div>`;
+  }
+  if (r.photos && r.photos.length) {
+    h += `<div><strong style="font-size:12px;color:var(--fgm)">FOTO:</strong><div class="photo-mini">${r.photos.map(url =>
+      `<div class="photo-mini-thumb"><img src="${url}" alt="foto" onerror="this.style.display='none'"></div>`
+    ).join('')}</div></div>`;
+  }
+  return h;
+}
+
+function updateFilterOptions() {
+  const sel = document.getElementById('filter-panel');
+  if (!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">Semua Panel</option>' + panels.map(p => `<option value="${p.id}" ${p.id === cur ? 'selected' : ''}>${p.name}</option>`).join('');
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   SCHEDULE
+════════════════════════════════════════════════════════════════════ */
+function renderSchedule() {
+  const today = new Date();
+  const withSched = panels.filter(p => p.nextSchedule).sort((a, b) => new Date(a.nextSchedule) - new Date(b.nextSchedule));
+  const el = document.getElementById('schedule-list');
+  if (!withSched.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-ico">🗓</div><h3>Belum ada jadwal</h3><p>Jadwal diset saat petugas mengisi laporan.</p></div>`;
+    return;
+  }
+  el.innerHTML = withSched.map(p => {
+    const d    = new Date(p.nextSchedule);
+    const diff = Math.round((d - today) / 86400000);
+    const over = diff < 0;
+    const tag  = over ? `<span class="urgency-tag urg-today">LEWAT ${-diff}h</span>`
+                 : diff <= 3 ? `<span class="urgency-tag urg-today">H-${diff}</span>`
+                 : diff <= 7 ? `<span class="urgency-tag urg-soon">H-${diff}</span>`
+                 : `<span class="urgency-tag urg-ok">H-${diff}</span>`;
+    return `<div class="schedule-item">
+      <div class="schedule-day" style="background:${over?'var(--crit)':diff<=3?'var(--warn)':'var(--navy)'}">
+        <div class="dd">${d.getDate()}</div>
+        <div class="mm">${d.toLocaleDateString('id-ID',{month:'short'})}</div>
+      </div>
+      <div class="schedule-info">
+        <div class="schedule-name">${p.name}</div>
+        <div class="schedule-meta">📍 ${p.station || '—'} · Interval ${p.maintenanceInterval || 30} hari</div>
+      </div>
+      ${tag}
+    </div>`;
+  }).join('');
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   REPORT FORM
+════════════════════════════════════════════════════════════════════ */
+async function openReportForm(panelId) {
+  document.getElementById('rf-loading').hidden = false;
+  document.getElementById('rf-form').hidden    = true;
+  document.getElementById('rf-success').hidden = true;
+  document.getElementById('rf-footer').hidden  = false;
+
+  const now = new Date();
+  document.getElementById('rf-date').value = now.toISOString().split('T')[0];
+  document.getElementById('rf-time').value = now.toTimeString().slice(0, 5);
+
+  document.getElementById('rf-checklist').innerHTML = CHECKLIST.map(item => `
+    <div class="checklist-item">
+      <div class="checklist-label">${item.label}</div>
+      <div class="check-options">
+        <button type="button" class="check-opt" data-item="${item.id}" data-val="ok"   onclick="setCheck(this,'ok')">Baik</button>
+        <button type="button" class="check-opt" data-item="${item.id}" data-val="warn" onclick="setCheck(this,'warn')">Perhatian</button>
+        <button type="button" class="check-opt" data-item="${item.id}" data-val="crit" onclick="setCheck(this,'crit')">Masalah</button>
+      </div>
+    </div>`).join('');
+
+  /* Pre-fill name from localStorage (last used) */
+  const savedName = localStorage.getItem('simpal_last_name');
+  if (savedName) document.getElementById('rf-name').value = savedName;
+  const savedNip = localStorage.getItem('simpal_last_nip');
+  if (savedNip) document.getElementById('rf-nip').value = savedNip;
+
+  /* Wait for panel data (max 4s) */
+  let tries = 0;
+  await new Promise(res => {
+    const t = setInterval(() => {
+      const p = panels.find(x => x.id === panelId);
+      if (p || tries++ > 10) {
+        clearInterval(t);
+        const pn = p?.name || panelId;
+        document.getElementById('rf-panel-name').textContent = pn;
+        document.getElementById('rf-panel-loc').textContent  = (p?.station || '') + (p?.location ? ' · ' + p.location : '') || 'PT KAI Daop 8 Surabaya';
+        res();
+      }
+    }, 400);
+  });
+
+  photoFiles = [];
+  document.getElementById('photo-grid').innerHTML    = '';
+  document.getElementById('photo-grid-wrap').hidden  = true;
+  document.getElementById('rf-loading').hidden = true;
+  document.getElementById('rf-form').hidden    = false;
+}
+
+function openReportDirect(panelId) {
+  currentPanelId = panelId;
+  show('report-screen');
+  openReportForm(panelId);
+}
+
+function backToAdmin() {
+  history.replaceState(null, '', location.pathname);
+  show('main-app');
+  currentPanelId = null;
+}
+
+function setCheck(btn, val) {
+  const item = btn.dataset.item;
+  document.querySelectorAll(`[data-item="${item}"]`).forEach(b => b.classList.remove('sel-ok', 'sel-warn', 'sel-crit'));
+  btn.classList.add('sel-' + val);
+}
+
+function selStatus(input) {
+  document.querySelectorAll('.status-opt').forEach(el => {
+    const v = el.dataset.val;
+    const sel = (v === input.value);
+    el.style.borderColor = sel ? (v === 'normal' ? 'var(--ok)' : v === 'perhatian' ? 'var(--warn)' : 'var(--crit)') : 'var(--border)';
+    el.style.background  = sel ? (v === 'normal' ? 'var(--ok-bg)' : v === 'perhatian' ? 'var(--warn-bg)' : 'var(--crit-bg)') : 'transparent';
+  });
+}
+
+/* ── Photo handling ── */
+function handlePhotoSelect(evt) {
+  Array.from(evt.target.files).slice(0, 5 - photoFiles.length).forEach(f => {
+    if (!f.type.startsWith('image/')) return;
+    if (f.size > 5 * 1024 * 1024) { toast('File terlalu besar (maks 5MB)'); return; }
+    const idx = photoFiles.length;
+    photoFiles.push(f);
+    const reader = new FileReader();
+    reader.onload = e => addPhotoThumb(e.target.result, idx);
+    reader.readAsDataURL(f);
+  });
+  evt.target.value = '';
+}
+
+function addPhotoThumb(src, idx) {
+  document.getElementById('photo-grid-wrap').hidden = false;
+  const grid = document.getElementById('photo-grid');
+  const div  = document.createElement('div');
+  div.className = 'photo-thumb';
+  div.id        = 'thumb-' + idx;
+  div.innerHTML = `<img src="${src}"><button class="photo-remove" onclick="removePhoto(${idx})">✕</button>`;
+  grid.appendChild(div);
+}
+
+function removePhoto(idx) {
+  photoFiles.splice(idx, 1);
+  const thumb = document.getElementById('thumb-' + idx);
+  if (thumb) thumb.remove();
+  document.querySelectorAll('.photo-thumb').forEach((el, i) => el.id = 'thumb-' + i);
+  if (!photoFiles.length) document.getElementById('photo-grid-wrap').hidden = true;
+}
+
+/* drag & drop */
+(function setupDrop() {
+  const drop = document.getElementById('photo-drop');
+  if (!drop) return;
+  drop.addEventListener('dragover',  e => { e.preventDefault(); drop.classList.add('drag-over'); });
+  drop.addEventListener('dragleave', ()  => drop.classList.remove('drag-over'));
+  drop.addEventListener('drop', e => {
+    e.preventDefault(); drop.classList.remove('drag-over');
+    Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/')).slice(0, 5 - photoFiles.length).forEach(f => {
+      const idx = photoFiles.length;
+      photoFiles.push(f);
+      const reader = new FileReader();
+      reader.onload = ev => addPhotoThumb(ev.target.result, idx);
+      reader.readAsDataURL(f);
+    });
+  });
+})();
+
+/* ── Upload photos → Firebase Storage ── */
+async function uploadPhotos() {
+  if (!photoFiles.length) return [];
+  const bar    = document.getElementById('upload-bar-wrap');
+  const barEl  = document.getElementById('upload-bar');
+  const label  = document.getElementById('upload-bar-label');
+  bar.hidden   = false;
+
+  const urls = [];
+  for (let i = 0; i < photoFiles.length; i++) {
+    label.textContent = `Mengunggah foto ${i + 1}/${photoFiles.length}…`;
+    barEl.style.width = Math.round(i / photoFiles.length * 100) + '%';
+    try {
+      const file = photoFiles[i];
+      const ref  = storage.ref(`photos/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`);
+      const task = ref.put(file);
+
+      /* granular per-file progress */
+      await new Promise((res, rej) => {
+        task.on('state_changed',
+          snap => {
+            const pct = Math.round((i + snap.bytesTransferred / snap.totalBytes) / photoFiles.length * 100);
+            barEl.style.width = pct + '%';
+          },
+          rej,
+          async () => {
+            urls.push(await task.snapshot.ref.getDownloadURL());
+            res();
+          }
+        );
+      });
+    } catch (e) {
+      console.warn('Upload foto gagal, simpan sebagai data URL:', e);
+      /* fallback: simpan data URL langsung ke Firestore (untuk gambar kecil) */
+      const dataUrl = await new Promise(r => {
+        const rd = new FileReader();
+        rd.onload = ev => r(ev.target.result);
+        rd.readAsDataURL(photoFiles[i]);
+      });
+      urls.push(dataUrl);
+    }
+  }
+  barEl.style.width    = '100%';
+  label.textContent    = 'Upload selesai ✅';
+  setTimeout(() => bar.hidden = true, 1500);
+  return urls;
+}
+
+/* ── Submit Laporan ── */
+async function submitReport() {
+  const name     = document.getElementById('rf-name').value.trim();
+  const date     = document.getElementById('rf-date').value;
+  const jenis    = document.getElementById('rf-jenis').value;
+  const statusEl = document.querySelector('input[name="status"]:checked');
+
+  if (!name)     { toast('Nama petugas wajib diisi'); return; }
+  if (!date)     { toast('Tanggal inspeksi wajib diisi'); return; }
+  if (!jenis)    { toast('Jenis kegiatan wajib diisi'); return; }
+  if (!statusEl) { toast('Pilih status keseluruhan panel'); return; }
+
+  const checklist = {};
+  CHECKLIST.forEach(item => {
+    const sel = document.querySelector(`.check-opt.sel-ok[data-item="${item.id}"]`) ||
+                document.querySelector(`.check-opt.sel-warn[data-item="${item.id}"]`) ||
+                document.querySelector(`.check-opt.sel-crit[data-item="${item.id}"]`);
+    if (sel) checklist[item.id] = sel.dataset.val;
+  });
+
+  const btn     = document.getElementById('rf-submit');
+  btn.disabled  = true;
+  btn.innerHTML = '<span>⏳</span> Menyimpan…';
+
+  try {
+    const photoUrls = await uploadPhotos();
+    const panel     = panels.find(x => x.id === currentPanelId);
+    const nextSched = document.getElementById('rf-next').value;
+    const reportId  = 'R' + Date.now();
+    const nip       = document.getElementById('rf-nip').value.trim();
+
+    /* Simpan ke localStorage untuk pre-fill berikutnya */
+    localStorage.setItem('simpal_last_name', name);
+    if (nip) localStorage.setItem('simpal_last_nip', nip);
+
+    await db.doc('reports/' + reportId).set({
+      id:             reportId,
+      panelId:        currentPanelId,
+      panelName:      panel?.name || currentPanelId,
+      technicianName: name,
+      nip,
+      jabatan:        document.getElementById('rf-jabatan').value,
+      inspectionDate: date,
+      inspectionTime: document.getElementById('rf-time').value,
+      jenisKegiatan:  jenis,
+      status:         statusEl.value,
+      checklist,
+      findings:       document.getElementById('rf-findings').value.trim(),
+      actions:        document.getElementById('rf-actions').value.trim(),
+      nextSchedule:   nextSched || null,
+      voltage:        document.getElementById('rf-volt').value  || null,
+      current:        document.getElementById('rf-amp').value   || null,
+      temperature:    document.getElementById('rf-temp').value  || null,
+      humidity:       document.getElementById('rf-humid').value || null,
+      photos:         photoUrls,
+      createdAt:      Date.now(),
+    });
+
+    /* Update status panel */
+    const upd = { lastMaintenance: date, lastStatus: statusEl.value };
+    if (nextSched) upd.nextSchedule = nextSched;
+    await db.doc('panels/' + currentPanelId).update(upd);
+
+    document.getElementById('rf-form').hidden    = true;
+    document.getElementById('rf-footer').hidden  = true;
+    document.getElementById('rf-success').hidden = false;
+  } catch (e) {
+    toast('Gagal menyimpan: ' + e.message);
+    btn.disabled  = false;
+    btn.innerHTML = '<span>📤</span> Kirim Laporan';
+  }
+}
+
+function resetForm() {
+  history.replaceState(null, '', location.pathname);
+  location.reload();
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   HELPERS
+════════════════════════════════════════════════════════════════════ */
+function fmtDate(d) {
+  if (!d) return '—';
+  try { return new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }); } catch { return d; }
+}
+function isOverdue(d) { return d && new Date(d) < new Date(); }
+
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 3500);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   START
+════════════════════════════════════════════════════════════════════ */
+init();
+</script>
+</body>
+</html>
